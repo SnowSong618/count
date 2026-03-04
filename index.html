@@ -14,48 +14,75 @@
         body { background-color: #f3f4f6; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
         .hide-scrollbar::-webkit-scrollbar { display: none; }
         .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        .modal-enter-active, .modal-leave-active { transition: opacity 0.3s ease; }
-        .modal-enter-from, .modal-leave-to { opacity: 0; }
         input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+        .animate-up { animation: slideUp 0.3s ease-out; }
+        @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
     </style>
 </head>
 <body>
 
-<div id="app" class="max-w-md mx-auto bg-white min-h-screen relative shadow-lg overflow-hidden flex flex-col">
+<div id="app" class="max-w-md mx-auto bg-gray-50 min-h-screen relative shadow-lg overflow-hidden flex flex-col">
 
     <!-- 1. 顶部资产卡片 -->
-    <header class="bg-blue-600 text-white p-6 rounded-b-3xl shadow-md z-10 sticky top-0">
+    <header class="bg-blue-600 text-white p-6 rounded-b-3xl shadow-lg z-10 sticky top-0">
         <div class="text-center">
-            <p class="text-blue-100 text-sm mb-1">总资产 (CNY)</p>
-            <!-- 点击此处修改总资产 -->
-            <div @click="openAssetModal" class="cursor-pointer flex items-center justify-center space-x-2 group">
+            <p class="text-blue-100 text-xs mb-1">总资产 (CNY)</p>
+            <div @click="openAssetModal" class="cursor-pointer flex items-center justify-center space-x-2 group active:scale-95 transition">
                 <h1 class="text-4xl font-bold">{{ formatMoney(totalAssets) }}</h1>
-                <i class="fas fa-pen text-xs text-blue-300 opacity-50 group-hover:opacity-100"></i>
+                <i class="fas fa-pen text-[10px] text-blue-300 opacity-50"></i>
             </div>
             
-            <div class="grid grid-cols-2 gap-4 mt-4 border-t border-blue-400 pt-4">
-                <div @click="openSavingsModal" class="cursor-pointer active:opacity-80">
-                    <p class="text-blue-200 text-xs"><i class="fas fa-piggy-bank mr-1"></i>存钱罐</p>
-                    <p class="text-xl font-semibold">{{ formatMoney(savings) }}</p>
+            <div class="grid grid-cols-2 gap-4 mt-5 border-t border-blue-400 border-opacity-30 pt-4">
+                <div @click="openSavingsModal" class="cursor-pointer active:opacity-80 border-r border-blue-400 border-opacity-30">
+                    <p class="text-blue-200 text-[10px] uppercase tracking-wider">存钱罐</p>
+                    <p class="text-lg font-semibold">{{ formatMoney(savings) }}</p>
                 </div>
                 <div>
-                    <p class="text-blue-200 text-xs"><i class="fas fa-wallet mr-1"></i>自由可用</p>
-                    <p class="text-xl font-semibold">{{ formatMoney(disposableMoney) }}</p>
+                    <p class="text-blue-200 text-[10px] uppercase tracking-wider">自由可用</p>
+                    <p class="text-lg font-semibold">{{ formatMoney(disposableMoney) }}</p>
                 </div>
             </div>
-        </div>
-
-        <!-- 预算进度条 -->
-        <div class="mt-6 bg-blue-800 rounded-full h-2 w-full relative overflow-hidden cursor-pointer" @click="openBudgetModal">
-            <div class="absolute top-0 left-0 h-full bg-green-400 transition-all duration-500" :style="{ width: budgetPercentage + '%' }"></div>
-        </div>
-        <div class="flex justify-between text-xs mt-1 text-blue-200 cursor-pointer" @click="openBudgetModal">
-            <span>本月支出: {{ formatMoney(currentMonthExpense) }}</span>
-            <span>预算: {{ currentBudgetMode === 'auto' ? '自动(收入)' : '固定' }} / {{ formatMoney(currentMonthBudget) }}</span>
         </div>
     </header>
 
-    <!-- 2. 主体内容区：过滤器与列表 -->
+    <!-- 2. 预算看板 (用户需求重点) -->
+    <section class="px-4 -mt-4 z-20">
+        <div @click="openBudgetModal" class="bg-white rounded-2xl shadow-sm p-4 border border-blue-50 active:bg-gray-50 transition cursor-pointer">
+            <div class="flex justify-between items-center mb-3">
+                <div class="flex items-center">
+                    <div :class="['w-2 h-2 rounded-full mr-2', budgetStatusColor]"></div>
+                    <span class="text-sm font-bold text-gray-700">本月预算使用</span>
+                </div>
+                <span class="text-[10px] text-gray-400 bg-gray-100 px-2 py-1 rounded-md">
+                    {{ currentBudgetMode === 'auto' ? '自动(收入计)' : '固定预算' }}
+                </span>
+            </div>
+            
+            <div class="flex justify-between items-end mb-2">
+                <div>
+                    <span class="text-2xl font-black text-gray-800">{{ formatMoney(currentMonthExpense) }}</span>
+                    <span class="text-xs text-gray-400 ml-1">/ {{ formatMoney(currentMonthBudget) }}</span>
+                </div>
+                <div class="text-right">
+                    <p class="text-[10px] text-gray-400">剩余可用</p>
+                    <p :class="['text-sm font-bold', remainingBudget < 0 ? 'text-red-500' : 'text-green-500']">
+                        {{ remainingBudget < 0 ? '' : '¥' }}{{ formatMoney(remainingBudget) }}
+                    </p>
+                </div>
+            </div>
+
+            <!-- 进度条 -->
+            <div class="w-full bg-gray-100 h-3 rounded-full overflow-hidden">
+                <div :class="['h-full transition-all duration-700 ease-in-out', budgetBarColor]" :style="{ width: budgetPercentage + '%' }"></div>
+            </div>
+            <div class="flex justify-between mt-1">
+                <p class="text-[10px] text-gray-400">已用 {{ budgetPercentage.toFixed(1) }}%</p>
+                <p v-if="budgetPercentage > 100" class="text-[10px] text-red-500 font-bold italic underline">注意：已超支！</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- 3. 主体内容区 -->
     <main class="flex-1 overflow-y-auto p-4 pb-24 hide-scrollbar">
         
         <!-- 工具栏 -->
@@ -63,210 +90,191 @@
             <div class="flex space-x-2 overflow-x-auto hide-scrollbar">
                 <button v-for="t in timeFilters" :key="t.val" 
                     @click="currentTimeFilter = t.val"
-                    :class="['px-3 py-1 rounded-full text-xs whitespace-nowrap', currentTimeFilter === t.val ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-600']">
+                    :class="['px-4 py-1.5 rounded-xl text-xs font-medium transition', currentTimeFilter === t.val ? 'bg-blue-600 text-white shadow-md' : 'bg-white text-gray-500 border border-gray-100']">
                     {{ t.label }}
                 </button>
             </div>
-            <button @click="showCategoryFilter = !showCategoryFilter" :class="['ml-2 p-2 rounded-full text-xs', filterCategory ? 'bg-blue-100 text-blue-600' : 'text-gray-400']">
-                <i class="fas fa-filter"></i> {{ filterCategory ? filterCategory : '筛选' }}
+            <button @click="showCategoryFilter = !showCategoryFilter" :class="['ml-2 p-2 px-3 rounded-xl text-xs font-medium transition flex items-center', filterCategory ? 'bg-blue-100 text-blue-600' : 'bg-white text-gray-400 border border-gray-100']">
+                <i class="fas fa-filter mr-1"></i> {{ filterCategory ? filterCategory : '筛选' }}
             </button>
         </div>
 
-        <!-- 分类筛选器 (展开时显示) -->
-        <div v-if="showCategoryFilter" class="mb-4 bg-gray-50 p-3 rounded-lg grid grid-cols-4 gap-2">
-            <button @click="setFilter(null)" class="text-xs p-2 rounded bg-white border border-gray-200">全部</button>
+        <!-- 分类筛选器 -->
+        <div v-if="showCategoryFilter" class="mb-4 bg-white p-3 rounded-2xl shadow-sm border border-blue-50 grid grid-cols-4 gap-2 animate-down">
+            <button @click="setFilter(null)" class="text-[10px] p-2 rounded-lg bg-gray-50 border border-gray-100">全部</button>
             <button v-for="cat in categories" :key="cat" @click="setFilter(cat)" 
-                :class="['text-xs p-2 rounded border', filterCategory === cat ? 'bg-blue-100 border-blue-300 text-blue-700' : 'bg-white border-gray-200']">
+                :class="['text-[10px] p-2 rounded-lg border transition', filterCategory === cat ? 'bg-blue-600 border-blue-600 text-white' : 'bg-gray-50 border-gray-100 text-gray-600']">
                 {{ cat }}
             </button>
-            <button @click="openCategoryManage" class="text-xs p-2 rounded border border-dashed border-gray-400 text-gray-500">+ 管理</button>
+            <button @click="openCategoryManage" class="text-[10px] p-2 rounded-lg border border-dashed border-gray-300 text-gray-400">管理</button>
         </div>
 
-        <!-- 统计概览 -->
-        <div class="bg-white p-4 rounded-xl shadow-sm mb-4 flex justify-between items-center border border-gray-100">
-            <div class="text-center w-1/2 border-r">
-                <p class="text-xs text-gray-500">期间收入</p>
-                <p class="text-green-600 font-bold">+{{ formatMoney(periodIncome) }}</p>
+        <!-- 周期概览 -->
+        <div class="grid grid-cols-2 gap-4 mb-6">
+            <div class="bg-green-50 p-3 rounded-2xl border border-green-100">
+                <p class="text-[10px] text-green-600 mb-1">收入合计</p>
+                <p class="text-lg font-bold text-green-700">+{{ formatMoney(periodIncome) }}</p>
             </div>
-            <div class="text-center w-1/2">
-                <p class="text-xs text-gray-500">期间支出</p>
-                <p class="text-red-500 font-bold">-{{ formatMoney(periodExpense) }}</p>
+            <div class="bg-red-50 p-3 rounded-2xl border border-red-100">
+                <p class="text-[10px] text-red-600 mb-1">支出合计</p>
+                <p class="text-lg font-bold text-red-700">-{{ formatMoney(periodExpense) }}</p>
             </div>
         </div>
 
         <!-- 账单列表 -->
-        <div v-if="filteredTransactions.length === 0" class="text-center text-gray-400 mt-10">
-            <i class="fas fa-receipt text-4xl mb-2"></i>
-            <p>暂无账单记录</p>
+        <div v-if="filteredTransactions.length === 0" class="text-center py-10">
+            <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                <i class="fas fa-receipt text-gray-300 text-2xl"></i>
+            </div>
+            <p class="text-gray-400 text-sm">此时间段没有账单</p>
         </div>
 
-        <div v-else class="space-y-3">
+        <div v-else class="space-y-4">
             <div v-for="(group, dateKey) in groupedTransactions" :key="dateKey">
-                <h3 class="text-xs text-gray-500 mb-2 pl-1 sticky top-0 bg-gray-50 py-1">{{ dateKey }}</h3>
-                <div v-for="item in group" :key="item.id" class="bg-white p-3 rounded-lg shadow-sm flex justify-between items-center mb-2">
-                    <div class="flex items-center">
-                        <div :class="['w-10 h-10 rounded-full flex items-center justify-center mr-3 text-white', item.type === 'expense' ? 'bg-red-400' : 'bg-green-400']">
-                            <i :class="getIcon(item.category)"></i>
+                <h3 class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 px-1">{{ dateKey }}</h3>
+                <div class="space-y-2">
+                    <div v-for="item in group" :key="item.id" class="bg-white p-3 rounded-2xl shadow-sm flex justify-between items-center border border-gray-50 active:scale-[0.98] transition">
+                        <div class="flex items-center">
+                            <div :class="['w-10 h-10 rounded-xl flex items-center justify-center mr-3 text-white shadow-sm', item.type === 'expense' ? 'bg-red-400' : 'bg-green-400']">
+                                <i :class="getIcon(item.category)" class="text-sm"></i>
+                            </div>
+                            <div>
+                                <p class="text-sm font-bold text-gray-800">{{ item.name }}</p>
+                                <p class="text-[10px] text-gray-400">{{ item.category }}</p>
+                            </div>
                         </div>
-                        <div>
-                            <p class="font-medium text-gray-800">{{ item.name }}</p>
-                            <p class="text-xs text-gray-400">{{ item.category }}</p>
+                        <div class="flex items-center space-x-3">
+                            <p :class="['font-bold text-sm', item.type === 'expense' ? 'text-red-500' : 'text-green-600']">
+                                {{ item.type === 'expense' ? '-' : '+' }}{{ formatMoney(item.amount) }}
+                            </p>
+                            <button @click="deleteTransaction(item.id)" class="w-8 h-8 rounded-lg bg-gray-50 text-gray-300 flex items-center justify-center hover:text-red-500">
+                                <i class="fas fa-trash text-[10px]"></i>
+                            </button>
                         </div>
-                    </div>
-                    <div class="text-right">
-                        <p :class="['font-bold', item.type === 'expense' ? 'text-red-500' : 'text-green-600']">
-                            {{ item.type === 'expense' ? '-' : '+' }}{{ formatMoney(item.amount) }}
-                        </p>
-                        <button @click="deleteTransaction(item.id)" class="text-xs text-gray-300 hover:text-red-500 ml-2">
-                            <i class="fas fa-trash"></i>
-                        </button>
                     </div>
                 </div>
             </div>
         </div>
     </main>
 
-    <!-- 3. 底部悬浮按钮 -->
-    <button @click="openAddModal" class="absolute bottom-6 right-6 w-14 h-14 bg-blue-600 text-white rounded-full shadow-lg flex items-center justify-center text-2xl hover:bg-blue-700 transition transform hover:scale-105 active:scale-95 z-50">
+    <!-- 底部悬浮按钮 -->
+    <button @click="openAddModal" class="absolute bottom-8 right-6 w-14 h-14 bg-blue-600 text-white rounded-2xl shadow-xl flex items-center justify-center text-2xl hover:bg-blue-700 transition transform hover:scale-110 active:scale-90 z-50">
         <i class="fas fa-plus"></i>
     </button>
 
-    <!-- ==== 弹窗：修改总资产 (新增) ==== -->
-    <div v-if="showAssetModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-        <div class="bg-white w-full max-w-sm p-6 rounded-2xl shadow-xl">
-            <h3 class="text-lg font-bold mb-4">校准总资产</h3>
-            <p class="text-xs text-gray-500 mb-2">直接输入你当前的实际资产，系统会自动调整余额。</p>
-            <div class="relative">
-                <span class="absolute left-3 top-2 text-gray-500 font-bold">¥</span>
-                <input type="number" v-model.number="assetInput" class="w-full border bg-gray-50 p-2 pl-8 rounded-lg text-lg font-bold" placeholder="0.00">
+    <!-- ==== 弹窗：校准总资产 ==== -->
+    <div v-if="showAssetModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-6">
+        <div class="bg-white w-full rounded-3xl p-6 shadow-2xl">
+            <h3 class="text-xl font-bold mb-2">校准总资产</h3>
+            <p class="text-xs text-gray-400 mb-6">输入你目前真实的资金总数（含现金、银行卡、余额等）。</p>
+            <div class="bg-gray-50 rounded-2xl p-4 mb-6 border border-gray-100">
+                <span class="text-xs text-blue-600 font-bold block mb-1">当前应有总金额</span>
+                <input type="number" v-model.number="assetInput" class="w-full bg-transparent text-3xl font-black outline-none" autofocus>
             </div>
-            <div class="flex space-x-3 mt-6">
-                <button @click="showAssetModal = false" class="flex-1 py-2 bg-gray-100 text-gray-600 rounded-lg">取消</button>
-                <button @click="confirmAssetUpdate" class="flex-1 py-2 bg-blue-600 text-white rounded-lg">确定</button>
+            <div class="flex space-x-3">
+                <button @click="showAssetModal = false" class="flex-1 py-4 text-gray-500 font-bold">取消</button>
+                <button @click="confirmAssetUpdate" class="flex-1 py-4 bg-blue-600 text-white rounded-2xl font-bold shadow-lg shadow-blue-200">完成校准</button>
             </div>
         </div>
     </div>
 
     <!-- ==== 弹窗：记账 ==== -->
-    <div v-if="showAddModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-end sm:items-center justify-center">
-        <div class="bg-white w-full max-w-md p-6 rounded-t-2xl sm:rounded-2xl shadow-2xl animate-slide-up">
-            <h2 class="text-xl font-bold mb-4 text-gray-800">记一笔</h2>
-            
-            <!-- 支出/收入 选择 -->
-            <div class="flex bg-gray-100 rounded-lg p-1 mb-4">
-                <button @click="newTx.type = 'expense'" :class="['flex-1 py-2 rounded-md text-sm font-medium transition', newTx.type === 'expense' ? 'bg-white shadow text-red-500' : 'text-gray-500']">支出</button>
-                <button @click="newTx.type = 'income'" :class="['flex-1 py-2 rounded-md text-sm font-medium transition', newTx.type === 'income' ? 'bg-white shadow text-green-500' : 'text-gray-500']">收入</button>
+    <div v-if="showAddModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center">
+        <div class="bg-white w-full max-w-md p-6 rounded-t-[2.5rem] sm:rounded-3xl shadow-2xl animate-up">
+            <div class="w-12 h-1 bg-gray-200 rounded-full mx-auto mb-6"></div>
+            <div class="flex bg-gray-100 rounded-2xl p-1.5 mb-8">
+                <button @click="newTx.type = 'expense'" :class="['flex-1 py-3 rounded-xl text-sm font-bold transition', newTx.type === 'expense' ? 'bg-white text-red-500 shadow-sm' : 'text-gray-400']">支出记录</button>
+                <button @click="newTx.type = 'income'" :class="['flex-1 py-3 rounded-xl text-sm font-bold transition', newTx.type === 'income' ? 'bg-white text-green-500 shadow-sm' : 'text-gray-400']">收入记录</button>
             </div>
 
-            <!-- 表单 -->
-            <div class="space-y-4">
+            <div class="space-y-6">
                 <div>
-                    <label class="text-xs text-gray-500 block mb-1">金额</label>
-                    <input type="number" v-model.number="newTx.amount" placeholder="0.00" class="w-full text-3xl font-bold border-b-2 border-gray-200 focus:border-blue-500 outline-none py-1">
+                    <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1 pl-1">金额 (CNY)</p>
+                    <input type="number" v-model.number="newTx.amount" placeholder="0.00" class="w-full text-4xl font-black outline-none border-b-2 border-gray-100 focus:border-blue-600 pb-2 transition">
                 </div>
                 <div>
-                    <label class="text-xs text-gray-500 block mb-1">名称/备注</label>
-                    <input type="text" v-model="newTx.name" placeholder="例如：午餐" class="w-full bg-gray-50 p-3 rounded-lg outline-none">
+                    <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1 pl-1">备注名称</p>
+                    <input type="text" v-model="newTx.name" placeholder="干点什么了？" class="w-full bg-gray-50 p-4 rounded-2xl outline-none border border-gray-100">
                 </div>
                 <div>
-                    <label class="text-xs text-gray-500 block mb-1">分类</label>
-                    <div class="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
+                    <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 pl-1">选择分类</p>
+                    <div class="flex flex-wrap gap-2 max-h-40 overflow-y-auto hide-scrollbar">
                         <span v-for="cat in categories" :key="cat" 
                               @click="newTx.category = cat"
-                              :class="['px-3 py-1 text-xs rounded-full cursor-pointer border', newTx.category === cat ? 'bg-blue-100 border-blue-500 text-blue-700' : 'bg-white border-gray-200 text-gray-600']">
+                              :class="['px-4 py-2 text-xs rounded-xl cursor-pointer border transition', newTx.category === cat ? 'bg-blue-600 border-blue-600 text-white shadow-md' : 'bg-gray-50 border-gray-100 text-gray-500']">
                             {{ cat }}
                         </span>
                     </div>
                 </div>
-                <div>
-                    <label class="text-xs text-gray-500 block mb-1">日期</label>
-                    <input type="date" v-model="newTx.date" class="w-full bg-gray-50 p-2 rounded-lg outline-none text-sm">
+                <div class="flex space-x-3">
+                    <input type="date" v-model="newTx.date" class="flex-1 bg-gray-50 p-4 rounded-2xl outline-none text-xs font-bold border border-gray-100">
+                    <button @click="confirmTransaction" class="flex-[2] py-4 bg-blue-600 text-white rounded-2xl font-bold shadow-lg shadow-blue-200">保存账单</button>
                 </div>
             </div>
-
-            <div class="flex space-x-3 mt-6">
-                <button @click="closeAddModal" class="flex-1 py-3 bg-gray-100 text-gray-600 rounded-xl font-medium">取消</button>
-                <button @click="confirmTransaction" class="flex-1 py-3 bg-blue-600 text-white rounded-xl font-medium">确定</button>
-            </div>
+            <button @click="closeAddModal" class="w-full py-4 text-gray-300 text-xs mt-2">点击此处返回</button>
         </div>
     </div>
 
     <!-- ==== 弹窗：存钱罐 ==== -->
-    <div v-if="showSavingsModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-        <div class="bg-white w-full max-w-sm p-6 rounded-2xl shadow-xl">
-            <div class="flex justify-between items-center mb-4">
-                <h3 class="text-lg font-bold">小金库管理</h3>
-                <button @click="showSavingsModal = false" class="text-gray-400"><i class="fas fa-times"></i></button>
+    <div v-if="showSavingsModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-6">
+        <div class="bg-white w-full max-w-sm p-6 rounded-3xl shadow-2xl">
+            <h3 class="text-xl font-bold mb-2">小金库管理</h3>
+            <div class="bg-yellow-50 p-6 rounded-2xl my-6 text-center border border-yellow-100">
+                <p class="text-yellow-600 text-[10px] font-bold uppercase mb-1">当前积蓄</p>
+                <p class="text-3xl font-black text-yellow-700">{{ formatMoney(savings) }}</p>
             </div>
-            <div class="bg-yellow-50 p-4 rounded-xl mb-4 text-center border border-yellow-200">
-                <p class="text-yellow-700 text-xs">当前存款</p>
-                <p class="text-2xl font-bold text-yellow-600">{{ formatMoney(savings) }}</p>
+            <input type="number" v-model.number="savingsInput" class="w-full bg-gray-50 border border-gray-100 p-4 rounded-2xl mb-6 outline-none text-center text-xl font-bold" placeholder="输入金额">
+            <div class="grid grid-cols-2 gap-4">
+                <button @click="updateSavings('withdraw')" class="py-4 bg-gray-100 text-gray-600 rounded-2xl font-bold">转出</button>
+                <button @click="updateSavings('deposit')" class="py-4 bg-blue-600 text-white rounded-2xl font-bold shadow-lg">存入</button>
             </div>
-            
-            <div class="space-y-4">
-                <div>
-                    <label class="text-xs text-gray-500">操作金额</label>
-                    <input type="number" v-model.number="savingsInput" class="w-full border p-2 rounded-lg mt-1" placeholder="输入金额">
-                </div>
-                <div class="grid grid-cols-2 gap-3">
-                    <button @click="updateSavings('deposit')" class="bg-green-100 text-green-700 py-2 rounded-lg font-medium hover:bg-green-200">
-                        <i class="fas fa-arrow-down mr-1"></i> 存入
-                    </button>
-                    <button @click="updateSavings('withdraw')" class="bg-red-100 text-red-700 py-2 rounded-lg font-medium hover:bg-red-200">
-                        <i class="fas fa-arrow-up mr-1"></i> 取出
-                    </button>
-                </div>
-                <p class="text-xs text-gray-400 text-center mt-2">存入将从“自由可用”资金中扣除</p>
-            </div>
+            <button @click="showSavingsModal = false" class="w-full mt-4 text-xs text-gray-400">取消</button>
         </div>
     </div>
 
     <!-- ==== 弹窗：预算设置 ==== -->
-    <div v-if="showBudgetModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-        <div class="bg-white w-full max-w-sm p-6 rounded-2xl shadow-xl">
-            <h3 class="text-lg font-bold mb-4">本月预算设置</h3>
-            
-            <div class="flex flex-col space-y-3">
-                <label class="flex items-center space-x-3 p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
-                    <input type="radio" v-model="budgetSettings.mode" value="auto" class="text-blue-600">
+    <div v-if="showBudgetModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-6">
+        <div class="bg-white w-full max-w-sm p-6 rounded-3xl shadow-2xl">
+            <h3 class="text-xl font-bold mb-6">月度预算设置</h3>
+            <div class="space-y-4 mb-8">
+                <label @click="budgetSettings.mode = 'auto'" :class="['flex items-center p-4 border-2 rounded-2xl cursor-pointer transition', budgetSettings.mode === 'auto' ? 'border-blue-600 bg-blue-50' : 'border-gray-100']">
+                    <div :class="['w-4 h-4 rounded-full border-2 mr-3 flex items-center justify-center', budgetSettings.mode === 'auto' ? 'border-blue-600' : 'border-gray-300']">
+                        <div v-if="budgetSettings.mode === 'auto'" class="w-2 h-2 bg-blue-600 rounded-full"></div>
+                    </div>
                     <div>
-                        <span class="font-medium text-sm block">动态预算 (推荐)</span>
-                        <span class="text-xs text-gray-500">预算 = 本月总收入</span>
+                        <p class="text-sm font-bold">动态预算</p>
+                        <p class="text-[10px] text-gray-400">本月预算 = 本月总收入</p>
                     </div>
                 </label>
-                <label class="flex items-center space-x-3 p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
-                    <input type="radio" v-model="budgetSettings.mode" value="fixed" class="text-blue-600">
+                <label @click="budgetSettings.mode = 'fixed'" :class="['flex items-center p-4 border-2 rounded-2xl cursor-pointer transition', budgetSettings.mode === 'fixed' ? 'border-blue-600 bg-blue-50' : 'border-gray-100']">
+                    <div :class="['w-4 h-4 rounded-full border-2 mr-3 flex items-center justify-center', budgetSettings.mode === 'fixed' ? 'border-blue-600' : 'border-gray-300']">
+                        <div v-if="budgetSettings.mode === 'fixed'" class="w-2 h-2 bg-blue-600 rounded-full"></div>
+                    </div>
                     <div class="flex-1">
-                        <span class="font-medium text-sm block">固定预算</span>
-                        <input v-if="budgetSettings.mode === 'fixed'" type="number" v-model.number="budgetSettings.amount" class="mt-1 w-full border-b border-gray-300 outline-none text-sm py-1" placeholder="输入金额">
+                        <p class="text-sm font-bold">固定额度</p>
+                        <input v-if="budgetSettings.mode === 'fixed'" type="number" v-model.number="budgetSettings.amount" class="w-full bg-transparent border-b border-blue-200 mt-1 outline-none text-blue-600 font-bold" placeholder="输入金额">
                     </div>
                 </label>
             </div>
-            <div class="mt-6 text-right">
-                <button @click="showBudgetModal = false" class="bg-blue-600 text-white px-6 py-2 rounded-lg">完成</button>
-            </div>
+            <button @click="showBudgetModal = false" class="w-full py-4 bg-blue-600 text-white rounded-2xl font-bold">保存并应用</button>
         </div>
     </div>
 
     <!-- ==== 弹窗：分类管理 ==== -->
-    <div v-if="showCatManageModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-        <div class="bg-white w-full max-w-sm p-6 rounded-2xl shadow-xl h-3/4 flex flex-col">
-            <div class="flex justify-between items-center mb-4">
-                <h3 class="text-lg font-bold">管理分类</h3>
-                <button @click="showCatManageModal = false" class="text-gray-400"><i class="fas fa-times"></i></button>
-            </div>
-            
+    <div v-if="showCatManageModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-6">
+        <div class="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl h-[60vh] flex flex-col">
+            <h3 class="text-xl font-bold mb-4">管理分类</h3>
             <div class="flex space-x-2 mb-4">
-                <input type="text" v-model="newCategoryName" placeholder="新分类名称" class="flex-1 border p-2 rounded-lg text-sm">
-                <button @click="addCategory" class="bg-blue-600 text-white px-4 rounded-lg text-sm">添加</button>
+                <input type="text" v-model="newCategoryName" placeholder="新分类" class="flex-1 bg-gray-50 border border-gray-100 p-3 rounded-xl outline-none text-sm">
+                <button @click="addCategory" class="bg-blue-600 text-white px-5 rounded-xl text-sm font-bold">添加</button>
             </div>
-
-            <div class="flex-1 overflow-y-auto space-y-2">
-                <div v-for="(cat, index) in categories" :key="cat" class="flex justify-between items-center p-2 bg-gray-50 rounded">
-                    <span>{{ cat }}</span>
-                    <button @click="removeCategory(index)" class="text-red-400 hover:text-red-600"><i class="fas fa-trash"></i></button>
+            <div class="flex-1 overflow-y-auto space-y-2 pr-2 hide-scrollbar">
+                <div v-for="(cat, index) in categories" :key="cat" class="flex justify-between items-center p-3 bg-gray-50 rounded-xl border border-gray-100">
+                    <span class="text-sm font-medium">{{ cat }}</span>
+                    <button @click="removeCategory(index)" class="text-red-300 hover:text-red-500"><i class="fas fa-times-circle"></i></button>
                 </div>
             </div>
+            <button @click="showCatManageModal = false" class="mt-4 py-3 text-gray-400 text-xs">返回</button>
         </div>
     </div>
 
@@ -277,97 +285,46 @@
 
     createApp({
         setup() {
-            // === 状态数据 ===
-            const initialBalance = ref(0); // 初始余额（用于校准总资产）
+            // === 数据状态 ===
+            const initialBalance = ref(0); 
             const transactions = ref([]); 
             const savings = ref(0);
+            const budgetSettings = ref({ mode: 'auto', amount: 3000 });
+            const categories = ref(['餐饮', '交通', '购物', '娱乐', '居家', '工资', '奖金', '转账']);
             
-            const budgetSettings = ref({
-                mode: 'auto', 
-                amount: 5000
-            });
-            const categories = ref(['餐饮', '交通', '购物', '娱乐', '居住', '工资', '奖金', '投资']);
-            
-            // 界面控制状态
-            const showAddModal = ref(false);
-            const showSavingsModal = ref(false);
-            const showBudgetModal = ref(false);
-            const showCatManageModal = ref(false);
-            const showCategoryFilter = ref(false);
-            const showAssetModal = ref(false); // 新增：资产设置弹窗
+            // 弹窗控制
+            const showAddModal = ref(false), showSavingsModal = ref(false), showBudgetModal = ref(false), showCatManageModal = ref(false), showCategoryFilter = ref(false), showAssetModal = ref(false);
 
-            // 过滤状态
-            const currentTimeFilter = ref('month');
-            const filterCategory = ref(null);
+            // 过滤
+            const currentTimeFilter = ref('month'), filterCategory = ref(null);
             
             // 输入绑定
-            const savingsInput = ref('');
-            const newCategoryName = ref('');
-            const assetInput = ref(''); // 新增：资产输入
+            const savingsInput = ref(''), newCategoryName = ref(''), assetInput = ref('');
+            const newTx = ref({ type: 'expense', name: '', amount: '', category: '餐饮', date: new Date().toISOString().split('T')[0] });
 
-            const newTx = ref({
-                type: 'expense',
-                name: '',
-                amount: '',
-                category: '餐饮',
-                date: new Date().toISOString().split('T')[0]
-            });
+            const timeFilters = [{ label: '今日', val: 'day' }, { label: '本周', val: 'week' }, { label: '本月', val: 'month' }, { label: '本年', val: 'year' }];
 
-            const timeFilters = [
-                { label: '本年', val: 'year' },
-                { label: '本月', val: 'month' },
-                { label: '本周', val: 'week' },
-                { label: '今日', val: 'day' }
-            ];
+            // === 计算逻辑 ===
+            const netCashFlow = computed(() => transactions.value.reduce((acc, t) => t.type === 'income' ? acc + t.amount : acc - t.amount, 0));
+            const totalAssets = computed(() => initialBalance.value + netCashFlow.value);
+            const disposableMoney = computed(() => totalAssets.value - savings.value);
 
-            // === 核心计算属性 ===
-
-            // 净流水 = 所有收入 - 所有支出
-            const netCashFlow = computed(() => {
-                return transactions.value.reduce((acc, t) => {
-                    return t.type === 'income' ? acc + t.amount : acc - t.amount;
-                }, 0);
-            });
-
-            // 总资产 = 初始余额 + 净流水
-            const totalAssets = computed(() => {
-                return initialBalance.value + netCashFlow.value;
-            });
-
-            // 自由可用资金 = 总资产 - 存钱罐
-            const disposableMoney = computed(() => {
-                return totalAssets.value - savings.value;
-            });
-
-            // 筛选逻辑 (保持不变)
             const filteredByTime = computed(() => {
                 const now = new Date();
                 return transactions.value.filter(t => {
                     const tDate = new Date(t.date);
-                    if (currentTimeFilter.value === 'year') {
-                        return tDate.getFullYear() === now.getFullYear();
-                    } else if (currentTimeFilter.value === 'month') {
-                        return tDate.getMonth() === now.getMonth() && tDate.getFullYear() === now.getFullYear();
-                    } else if (currentTimeFilter.value === 'day') {
-                        return t.date === now.toISOString().split('T')[0];
-                    } else if (currentTimeFilter.value === 'week') {
-                        const onejan = new Date(now.getFullYear(), 0, 1);
-                        const todayWeek = Math.ceil((((now - onejan) / 86400000) + onejan.getDay() + 1) / 7);
-                        const tWeek = Math.ceil((((tDate - onejan) / 86400000) + onejan.getDay() + 1) / 7);
-                        return tWeek === todayWeek && tDate.getFullYear() === now.getFullYear();
+                    if (currentTimeFilter.value === 'year') return tDate.getFullYear() === now.getFullYear();
+                    if (currentTimeFilter.value === 'month') return tDate.getMonth() === now.getMonth() && tDate.getFullYear() === now.getFullYear();
+                    if (currentTimeFilter.value === 'day') return t.date === now.toISOString().split('T')[0];
+                    if (currentTimeFilter.value === 'week') {
+                        const startOfWeek = new Date(now.setDate(now.getDate() - now.getDay()));
+                        return tDate >= startOfWeek;
                     }
                     return true;
                 }).sort((a, b) => new Date(b.date) - new Date(a.date));
             });
 
-            const filteredTransactions = computed(() => {
-                let list = filteredByTime.value;
-                if (filterCategory.value) {
-                    list = list.filter(t => t.category === filterCategory.value);
-                }
-                return list;
-            });
-
+            const filteredTransactions = computed(() => filterCategory.value ? filteredByTime.value.filter(t => t.category === filterCategory.value) : filteredByTime.value);
             const groupedTransactions = computed(() => {
                 const groups = {};
                 filteredTransactions.value.forEach(t => {
@@ -380,7 +337,7 @@
             const periodIncome = computed(() => filteredTransactions.value.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0));
             const periodExpense = computed(() => filteredTransactions.value.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0));
 
-            // 预算计算 (保持不变)
+            // 预算核心逻辑
             const currentMonthTransactions = computed(() => {
                 const now = new Date();
                 return transactions.value.filter(t => {
@@ -388,124 +345,74 @@
                     return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
                 });
             });
-
-            const currentMonthIncome = computed(() => 
-                currentMonthTransactions.value.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0)
-            );
-            const currentMonthExpense = computed(() => 
-                currentMonthTransactions.value.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0)
-            );
-            const currentBudgetMode = computed(() => budgetSettings.value.mode);
-            const currentMonthBudget = computed(() => {
-                if (budgetSettings.value.mode === 'auto') {
-                    return currentMonthIncome.value > 0 ? currentMonthIncome.value : 0;
-                }
-                return budgetSettings.value.amount;
-            });
+            const currentMonthIncome = computed(() => currentMonthTransactions.value.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0));
+            const currentMonthExpense = computed(() => currentMonthTransactions.value.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0));
+            const currentMonthBudget = computed(() => budgetSettings.value.mode === 'auto' ? (currentMonthIncome.value || 0) : budgetSettings.value.amount);
+            const remainingBudget = computed(() => currentMonthBudget.value - currentMonthExpense.value);
             const budgetPercentage = computed(() => {
-                if (currentMonthBudget.value === 0) return currentMonthExpense.value > 0 ? 100 : 0;
-                let pct = (currentMonthExpense.value / currentMonthBudget.value) * 100;
-                return Math.min(pct, 100);
+                if (currentMonthBudget.value <= 0) return currentMonthExpense.value > 0 ? 100 : 0;
+                return Math.min((currentMonthExpense.value / currentMonthBudget.value) * 100, 100);
+            });
+
+            // 颜色状态计算
+            const budgetBarColor = computed(() => {
+                const pct = budgetPercentage.value;
+                if (pct >= 100) return 'bg-red-500';
+                if (pct >= 80) return 'bg-yellow-400';
+                return 'bg-blue-600';
+            });
+            const budgetStatusColor = computed(() => {
+                const pct = budgetPercentage.value;
+                if (pct >= 100) return 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]';
+                if (pct >= 80) return 'bg-yellow-400 shadow-[0_0_8px_rgba(250,204,21,0.5)]';
+                return 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]';
             });
 
             // === 方法 ===
-
-            const formatMoney = (val) => Number(val).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            const formatMoney = (val) => Number(val).toLocaleString('zh-CN', { minimumFractionDigits: 2 });
             const getIcon = (cat) => {
-                const map = { '餐饮': 'fa-utensils', '交通': 'fa-car', '购物': 'fa-shopping-bag', '娱乐': 'fa-gamepad', '居住': 'fa-home', '工资': 'fa-money-bill-wave', '奖金': 'fa-gift', '投资': 'fa-chart-line' };
+                const map = { '餐饮': 'fa-utensils', '交通': 'fa-car', '购物': 'fa-shopping-cart', '娱乐': 'fa-gamepad', '居家': 'fa-home', '工资': 'fa-wallet', '奖金': 'fa-gift', '转账': 'fa-exchange-alt' };
                 return `fas ${map[cat] || 'fa-tag'}`;
             };
 
-            // 模态框逻辑
-            const openAddModal = () => {
-                newTx.value.date = new Date().toISOString().split('T')[0];
-                newTx.value.amount = '';
-                newTx.value.name = '';
-                showAddModal.value = true;
-            };
+            const openAddModal = () => { newTx.value.amount = ''; newTx.value.name = ''; showAddModal.value = true; };
             const closeAddModal = () => showAddModal.value = false;
-            
-            // 新增：打开资产设置
-            const openAssetModal = () => {
-                assetInput.value = totalAssets.value; // 默认显示当前总资产
-                showAssetModal.value = true;
-            };
-
-            // 新增：确认资产修改
-            const confirmAssetUpdate = () => {
-                const targetAmount = Number(assetInput.value);
-                if (isNaN(targetAmount)) return;
-                
-                // 逻辑：总资产 = 初始余额 + 净流水
-                // 所以：初始余额 = 目标总资产 - 净流水
-                // 这样无论过去记了多少账，现在的总数都会变成用户输入的数
-                initialBalance.value = targetAmount - netCashFlow.value;
-                showAssetModal.value = false;
-            };
-
+            const openAssetModal = () => { assetInput.value = totalAssets.value; showAssetModal.value = true; };
+            const confirmAssetUpdate = () => { initialBalance.value = Number(assetInput.value) - netCashFlow.value; showAssetModal.value = false; };
             const openSavingsModal = () => { savingsInput.value = ''; showSavingsModal.value = true; };
             const openBudgetModal = () => showBudgetModal.value = true;
-            const openCategoryManage = () => showCatManageModal.value = true;
+            const openCategoryManage = () => { showCategoryFilter.value = false; showCatManageModal.value = true; };
 
             const confirmTransaction = () => {
                 if (!newTx.value.amount || newTx.value.amount <= 0) return alert('请输入有效金额');
-                if (!newTx.value.name) newTx.value.name = newTx.value.category;
-
                 transactions.value.unshift({ id: Date.now(), ...newTx.value });
                 closeAddModal();
             };
 
-            const deleteTransaction = (id) => {
-                if(confirm('确定删除这条记录吗？')) {
-                    transactions.value = transactions.value.filter(t => t.id !== id);
-                }
-            };
-
+            const deleteTransaction = (id) => confirm('确定删除？') && (transactions.value = transactions.value.filter(t => t.id !== id));
             const setFilter = (cat) => { filterCategory.value = cat; showCategoryFilter.value = false; };
-
             const updateSavings = (action) => {
                 const amt = Number(savingsInput.value);
-                if (!amt || amt <= 0) return;
-                
-                if (action === 'deposit') {
-                    if (amt > disposableMoney.value) return alert('自由资金不足！');
-                    savings.value += amt;
-                } else {
-                    if (amt > savings.value) return alert('存款不足！');
-                    savings.value -= amt;
-                }
-                savingsInput.value = '';
+                if (!amt) return;
+                if (action === 'deposit') { if (amt > disposableMoney.value) return alert('自由资金不足'); savings.value += amt; }
+                else { if (amt > savings.value) return alert('存款不足'); savings.value -= amt; }
                 showSavingsModal.value = false;
             };
-
-            const addCategory = () => {
-                if(newCategoryName.value && !categories.value.includes(newCategoryName.value)){
-                    categories.value.push(newCategoryName.value);
-                    newCategoryName.value = '';
-                }
-            };
+            const addCategory = () => { if(newCategoryName.value && !categories.value.includes(newCategoryName.value)){ categories.value.push(newCategoryName.value); newCategoryName.value = ''; } };
             const removeCategory = (index) => categories.value.splice(index, 1);
 
-            // 数据持久化
+            // 持久化
             onMounted(() => {
-                const savedTx = localStorage.getItem('myAccount_tx');
-                const savedSav = localStorage.getItem('myAccount_savings');
-                const savedCat = localStorage.getItem('myAccount_cats');
-                const savedBud = localStorage.getItem('myAccount_budget');
-                const savedInit = localStorage.getItem('myAccount_initial'); // 新增
-
-                if (savedTx) transactions.value = JSON.parse(savedTx);
-                if (savedSav) savings.value = Number(savedSav);
-                if (savedCat) categories.value = JSON.parse(savedCat);
-                if (savedBud) budgetSettings.value = JSON.parse(savedBud);
-                if (savedInit) initialBalance.value = Number(savedInit);
+                const data = { 'myAccount_tx': transactions, 'myAccount_savings': savings, 'myAccount_cats': categories, 'myAccount_budget': budgetSettings, 'myAccount_initial': initialBalance };
+                Object.keys(data).forEach(key => {
+                    const saved = localStorage.getItem(key);
+                    if (saved) data[key].value = key.includes('tx') || key.includes('cats') || key.includes('budget') ? JSON.parse(saved) : Number(saved);
+                });
             });
-
-            watch(transactions, (val) => localStorage.setItem('myAccount_tx', JSON.stringify(val)), { deep: true });
-            watch(savings, (val) => localStorage.setItem('myAccount_savings', val));
-            watch(categories, (val) => localStorage.setItem('myAccount_cats', JSON.stringify(val)), { deep: true });
-            watch(budgetSettings, (val) => localStorage.setItem('myAccount_budget', JSON.stringify(val)), { deep: true });
-            watch(initialBalance, (val) => localStorage.setItem('myAccount_initial', val)); // 新增
+            watch([transactions, savings, categories, budgetSettings, initialBalance], () => {
+                const data = { 'myAccount_tx': transactions.value, 'myAccount_savings': savings.value, 'myAccount_cats': categories.value, 'myAccount_budget': budgetSettings.value, 'myAccount_initial': initialBalance.value };
+                Object.keys(data).forEach(key => localStorage.setItem(key, typeof data[key] === 'object' ? JSON.stringify(data[key]) : data[key]));
+            }, { deep: true });
 
             return {
                 transactions, savings, budgetSettings, categories, initialBalance,
@@ -514,12 +421,9 @@
                 newTx, savingsInput, newCategoryName, assetInput,
                 totalAssets, disposableMoney, periodIncome, periodExpense,
                 filteredTransactions, groupedTransactions,
-                currentMonthExpense, currentMonthBudget, budgetPercentage, currentBudgetMode,
-                
-                formatMoney, getIcon,
-                openAddModal, closeAddModal, openSavingsModal, openBudgetModal, openCategoryManage, openAssetModal,
-                confirmTransaction, deleteTransaction, setFilter, confirmAssetUpdate,
-                updateSavings, addCategory, removeCategory
+                currentMonthExpense, currentMonthBudget, remainingBudget, budgetPercentage, budgetBarColor, budgetStatusColor, currentBudgetMode: computed(()=>budgetSettings.value.mode),
+                formatMoney, getIcon, openAddModal, closeAddModal, openSavingsModal, openBudgetModal, openCategoryManage, openAssetModal,
+                confirmTransaction, deleteTransaction, setFilter, confirmAssetUpdate, updateSavings, addCategory, removeCategory
             };
         }
     }).mount('#app');
