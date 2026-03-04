@@ -18,207 +18,273 @@
         .animate-up { animation: slideUp 0.3s ease-out; }
         @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
         .progress-transition { transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1); }
-        
-        /* 日期选择器自定义样式 */
-        .date-trigger::-webkit-calendar-picker-indicator {
-            filter: invert(1); opacity: 0.6; cursor: pointer;
-        }
+        .date-trigger::-webkit-calendar-picker-indicator { filter: invert(1); opacity: 0.6; cursor: pointer; }
     </style>
 </head>
 <body>
 
 <div id="app" class="max-w-md mx-auto bg-gray-50 min-h-screen relative shadow-lg overflow-hidden flex flex-col">
 
-    <!-- 1. 顶部资产卡片 -->
-    <header class="bg-blue-600 text-white p-6 rounded-b-3xl shadow-lg z-10 sticky top-0 transition-all duration-300">
-        <!-- 新增：顶部日期控制栏 -->
-        <div class="flex justify-between items-center mb-4 border-b border-blue-400 border-opacity-30 pb-2">
-            <div class="flex items-center space-x-2 bg-blue-700 bg-opacity-30 rounded-lg px-3 py-1">
-                <i class="fas fa-calendar-day text-blue-200 text-xs"></i>
-                <!-- 这里是核心：绑定系统时间 -->
-                <input type="date" v-model="systemDate" class="bg-transparent text-sm font-bold text-white outline-none date-trigger w-28">
-            </div>
-            <button @click="resetDateToToday" class="text-[10px] text-blue-200 bg-blue-800 px-2 py-1 rounded hover:bg-blue-700 transition">
-                回到今天
-            </button>
-        </div>
-
-        <div class="text-center">
-            <p class="text-blue-100 text-xs mb-1">总资产 (CNY)</p>
-            <div @click="openAssetModal" class="cursor-pointer flex items-center justify-center space-x-2 group active:scale-95 transition">
-                <h1 class="text-4xl font-bold">{{ formatMoney(totalAssets) }}</h1>
-                <i class="fas fa-pen text-[10px] text-blue-300 opacity-50"></i>
-            </div>
-            
-            <div class="grid grid-cols-2 gap-4 mt-4 border-t border-blue-400 border-opacity-30 pt-4">
-                <div @click="openSavingsModal" class="cursor-pointer active:opacity-80 border-r border-blue-400 border-opacity-30">
-                    <p class="text-blue-200 text-[10px] uppercase tracking-wider">存钱罐</p>
-                    <p class="text-lg font-semibold">{{ formatMoney(savings) }}</p>
+    <!-- ==== 模块 1：首页 (Home) ==== -->
+    <div v-show="currentTab === 'home'" class="flex-1 flex flex-col overflow-hidden">
+        <!-- 1. 顶部资产卡片 -->
+        <header class="bg-blue-600 text-white p-6 rounded-b-3xl shadow-lg z-10 sticky top-0">
+            <!-- 顶部日期控制 -->
+            <div class="flex justify-between items-center mb-4 border-b border-blue-400 border-opacity-30 pb-2">
+                <div class="flex items-center space-x-2 bg-blue-700 bg-opacity-30 rounded-lg px-3 py-1">
+                    <i class="fas fa-calendar-day text-blue-200 text-xs"></i>
+                    <input type="date" v-model="systemDate" class="bg-transparent text-sm font-bold text-white outline-none date-trigger w-28">
                 </div>
-                <div>
-                    <p class="text-blue-200 text-[10px] uppercase tracking-wider">自由可用</p>
-                    <p class="text-lg font-semibold">{{ formatMoney(disposableMoney) }}</p>
-                </div>
-            </div>
-        </div>
-    </header>
-
-    <!-- 2. 预算看板 -->
-    <section class="px-4 -mt-4 z-20">
-        <div @click="openBudgetModal" class="bg-white rounded-2xl shadow-sm p-4 border border-blue-50 active:bg-gray-50 transition cursor-pointer">
-            <div class="flex justify-between items-center mb-3">
-                <div class="flex items-center">
-                    <div :class="['w-2 h-2 rounded-full mr-2', budgetStatusColor]"></div>
-                    <span class="text-sm font-bold text-gray-700">本月总进度</span>
-                </div>
-                <span class="text-[10px] text-gray-400 bg-gray-100 px-2 py-1 rounded-md">
-                    {{ currentBudgetMode === 'auto' ? '动态(仅收入)' : '固定+收入' }}
-                </span>
-            </div>
-            
-            <div class="flex justify-between items-end mb-2">
-                <div>
-                    <span class="text-2xl font-black text-gray-800">{{ formatMoney(currentMonthExpense) }}</span>
-                    <span class="text-xs text-gray-400 ml-1">/ {{ formatMoney(effectiveMonthlyBudget) }}</span>
-                </div>
-                <div class="text-right">
-                    <p class="text-[10px] text-gray-400">本月剩余</p>
-                    <p :class="['text-sm font-bold', remainingBudget < 0 ? 'text-red-500' : 'text-green-500']">
-                        {{ remainingBudget < 0 ? '' : '¥' }}{{ formatMoney(remainingBudget) }}
-                    </p>
-                </div>
+                <button @click="resetDateToToday" class="text-[10px] text-blue-200 bg-blue-800 px-2 py-1 rounded hover:bg-blue-700 transition">回到今天</button>
             </div>
 
-            <!-- 月度进度条 -->
-            <div class="w-full bg-gray-100 h-3 rounded-full overflow-hidden mb-1">
-                <div :class="['h-full progress-transition', budgetBarColor]" :style="{ width: budgetPercentage + '%' }"></div>
-            </div>
-
-            <!-- ==== 建议金额模块 (智能更新) ==== -->
-            <div v-if="budgetSettings.mode === 'fixed' && effectiveMonthlyBudget > 0 && remainingBudget > -99999" class="mt-4 pt-3 border-t border-gray-100 animate-up">
-                
-                <div class="flex justify-between items-end mb-1">
-                    <span class="text-[10px] text-gray-500 font-bold">今日消费配速</span>
-                    <div class="text-right">
-                        <span class="text-[10px] text-gray-400 mr-1">今日建议:</span>
-                        <span :class="['text-xs font-bold', todayStatusColor]">
-                            ¥{{ formatMoney(todayCalculatedTarget) }}
-                        </span>
+            <div class="text-center">
+                <p class="text-blue-100 text-xs mb-1">总资产 (CNY)</p>
+                <div @click="openAssetModal" class="cursor-pointer flex items-center justify-center space-x-2 group active:scale-95 transition">
+                    <h1 class="text-4xl font-bold">{{ formatMoney(totalAssets) }}</h1>
+                    <i class="fas fa-pen text-[10px] text-blue-300 opacity-50"></i>
+                </div>
+                <div class="grid grid-cols-2 gap-4 mt-4 border-t border-blue-400 border-opacity-30 pt-4">
+                    <div @click="openSavingsModal" class="cursor-pointer active:opacity-80 border-r border-blue-400 border-opacity-30">
+                        <p class="text-blue-200 text-[10px] uppercase tracking-wider">存钱罐</p>
+                        <p class="text-lg font-semibold">{{ formatMoney(savings) }}</p>
+                    </div>
+                    <div>
+                        <p class="text-blue-200 text-[10px] uppercase tracking-wider">自由可用</p>
+                        <p class="text-lg font-semibold">{{ formatMoney(disposableMoney) }}</p>
                     </div>
                 </div>
+            </div>
+        </header>
 
-                <!-- 今日进度条 -->
-                <div class="w-full bg-gray-100 h-1.5 rounded-full overflow-hidden flex">
-                    <div :class="['h-full progress-transition', todayExpense > todayCalculatedTarget ? 'bg-red-500' : 'bg-blue-400']" 
-                         :style="{ width: todayProgressPct + '%' }"></div>
+        <!-- 2. 预算看板 -->
+        <section class="px-4 -mt-4 z-20">
+            <div @click="openBudgetModal" class="bg-white rounded-2xl shadow-sm p-4 border border-blue-50 active:bg-gray-50 transition cursor-pointer">
+                <div class="flex justify-between items-center mb-3">
+                    <div class="flex items-center">
+                        <div :class="['w-2 h-2 rounded-full mr-2', budgetStatusColor]"></div>
+                        <span class="text-sm font-bold text-gray-700">本月总进度</span>
+                    </div>
+                    <span class="text-[10px] text-gray-400 bg-gray-100 px-2 py-1 rounded-md">{{ currentBudgetMode === 'auto' ? '动态(仅收入)' : '固定+收入' }}</span>
+                </div>
+                
+                <div class="flex justify-between items-end mb-2">
+                    <div>
+                        <span class="text-2xl font-black text-gray-800">{{ formatMoney(currentMonthExpense) }}</span>
+                        <span class="text-xs text-gray-400 ml-1">/ {{ formatMoney(effectiveMonthlyBudget) }}</span>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-[10px] text-gray-400">本月剩余</p>
+                        <p :class="['text-sm font-bold', remainingBudget < 0 ? 'text-red-500' : 'text-green-500']">{{ remainingBudget < 0 ? '' : '¥' }}{{ formatMoney(remainingBudget) }}</p>
+                    </div>
+                </div>
+                <div class="w-full bg-gray-100 h-3 rounded-full overflow-hidden mb-1">
+                    <div :class="['h-full progress-transition', budgetBarColor]" :style="{ width: budgetPercentage + '%' }"></div>
                 </div>
 
-                <div class="flex justify-between mt-1 text-[10px]">
-                    <span class="text-gray-400">已用: ¥{{ formatMoney(todayExpense) }}</span>
-                    <span v-if="todayExpense > todayCalculatedTarget" class="text-red-500 font-bold">超支! 明日建议将减少</span>
-                    <span v-else class="text-green-500">剩余: ¥{{ formatMoney(todayCalculatedTarget - todayExpense) }}</span>
-                </div>
-
-                <div class="mt-2 text-[10px] text-center text-gray-300 transform scale-90">
-                    当前日期: {{ systemDate }} (剩余 {{ daysLeftInMonth }} 天)
+                <!-- 建议金额模块 -->
+                <div v-if="budgetSettings.mode === 'fixed' && effectiveMonthlyBudget > 0 && remainingBudget > -99999" class="mt-4 pt-3 border-t border-gray-100 animate-up">
+                    <div class="flex justify-between items-end mb-1">
+                        <span class="text-[10px] text-gray-500 font-bold">今日配速</span>
+                        <div class="text-right">
+                            <span class="text-[10px] text-gray-400 mr-1">今日建议:</span>
+                            <span :class="['text-xs font-bold', todayStatusColor]">¥{{ formatMoney(todayCalculatedTarget) }}</span>
+                        </div>
+                    </div>
+                    <div class="w-full bg-gray-100 h-1.5 rounded-full overflow-hidden flex">
+                        <div :class="['h-full progress-transition', todayExpense > todayCalculatedTarget ? 'bg-red-500' : 'bg-blue-400']" :style="{ width: todayProgressPct + '%' }"></div>
+                    </div>
+                    <div class="flex justify-between mt-1 text-[10px]">
+                        <span class="text-gray-400">已用: ¥{{ formatMoney(todayExpense) }}</span>
+                        <span v-if="todayExpense > todayCalculatedTarget" class="text-red-500 font-bold">超支!</span>
+                        <span v-else class="text-green-500">剩余: ¥{{ formatMoney(todayCalculatedTarget - todayExpense) }}</span>
+                    </div>
                 </div>
             </div>
+        </section>
 
-            <div v-else class="flex justify-between mt-1">
-                <p class="text-[10px] text-gray-400">已用 {{ budgetPercentage.toFixed(1) }}%</p>
-                <p v-if="budgetPercentage > 100" class="text-[10px] text-red-500 font-bold italic underline">注意：已超支！</p>
-            </div>
-        </div>
-    </section>
-
-    <!-- 3. 主体内容区 -->
-    <main class="flex-1 overflow-y-auto p-4 pb-24 hide-scrollbar">
-        <!-- 工具栏 -->
-        <div class="flex justify-between items-center mb-4">
-            <div class="flex space-x-2 overflow-x-auto hide-scrollbar">
-                <button v-for="t in timeFilters" :key="t.val" 
-                    @click="currentTimeFilter = t.val"
-                    :class="['px-4 py-1.5 rounded-xl text-xs font-medium transition', currentTimeFilter === t.val ? 'bg-blue-600 text-white shadow-md' : 'bg-white text-gray-500 border border-gray-100']">
-                    {{ t.label }}
+        <!-- 3. 主列表 -->
+        <main class="flex-1 overflow-y-auto p-4 pb-24 hide-scrollbar">
+            <!-- 工具栏 -->
+            <div class="flex justify-between items-center mb-4">
+                <div class="flex space-x-2 overflow-x-auto hide-scrollbar">
+                    <button v-for="t in timeFilters" :key="t.val" @click="currentTimeFilter = t.val" :class="['px-4 py-1.5 rounded-xl text-xs font-medium transition', currentTimeFilter === t.val ? 'bg-blue-600 text-white shadow-md' : 'bg-white text-gray-500 border border-gray-100']">{{ t.label }}</button>
+                </div>
+                <button @click="showCategoryFilter = !showCategoryFilter" :class="['ml-2 p-2 px-3 rounded-xl text-xs font-medium transition flex items-center', filterCategory ? 'bg-blue-100 text-blue-600' : 'bg-white text-gray-400 border border-gray-100']">
+                    <i class="fas fa-filter mr-1"></i> {{ filterCategory ? filterCategory : '筛选' }}
                 </button>
             </div>
-            <button @click="showCategoryFilter = !showCategoryFilter" :class="['ml-2 p-2 px-3 rounded-xl text-xs font-medium transition flex items-center', filterCategory ? 'bg-blue-100 text-blue-600' : 'bg-white text-gray-400 border border-gray-100']">
-                <i class="fas fa-filter mr-1"></i> {{ filterCategory ? filterCategory : '筛选' }}
-            </button>
-        </div>
 
-        <!-- 分类筛选器 -->
-        <div v-if="showCategoryFilter" class="mb-4 bg-white p-3 rounded-2xl shadow-sm border border-blue-50 grid grid-cols-4 gap-2 animate-down">
-            <button @click="setFilter(null)" class="text-[10px] p-2 rounded-lg bg-gray-50 border border-gray-100">全部</button>
-            <button v-for="cat in categories" :key="cat" @click="setFilter(cat)" 
-                :class="['text-[10px] p-2 rounded-lg border transition', filterCategory === cat ? 'bg-blue-600 border-blue-600 text-white' : 'bg-gray-50 border-gray-100 text-gray-600']">
-                {{ cat }}
-            </button>
-            <button @click="openCategoryManage" class="text-[10px] p-2 rounded-lg border border-dashed border-gray-300 text-gray-400">管理</button>
-        </div>
-
-        <!-- 周期概览 -->
-        <div class="grid grid-cols-2 gap-4 mb-6">
-            <div class="bg-green-50 p-3 rounded-2xl border border-green-100">
-                <p class="text-[10px] text-green-600 mb-1">收入合计</p>
-                <p class="text-lg font-bold text-green-700">+{{ formatMoney(periodIncome) }}</p>
+            <!-- 筛选器 -->
+            <div v-if="showCategoryFilter" class="mb-4 bg-white p-3 rounded-2xl shadow-sm border border-blue-50 grid grid-cols-4 gap-2 animate-down">
+                <button @click="setFilter(null)" class="text-[10px] p-2 rounded-lg bg-gray-50 border border-gray-100">全部</button>
+                <button v-for="cat in categories" :key="cat" @click="setFilter(cat)" :class="['text-[10px] p-2 rounded-lg border transition', filterCategory === cat ? 'bg-blue-600 border-blue-600 text-white' : 'bg-gray-50 border-gray-100 text-gray-600']">{{ cat }}</button>
+                <button @click="openCategoryManage" class="text-[10px] p-2 rounded-lg border border-dashed border-gray-300 text-gray-400">管理</button>
             </div>
-            <div class="bg-red-50 p-3 rounded-2xl border border-red-100">
-                <p class="text-[10px] text-red-600 mb-1">支出合计</p>
-                <p class="text-lg font-bold text-red-700">-{{ formatMoney(periodExpense) }}</p>
-            </div>
-        </div>
 
-        <!-- 账单列表 -->
-        <div v-if="filteredTransactions.length === 0" class="text-center py-10">
-            <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                <i class="fas fa-receipt text-gray-300 text-2xl"></i>
+            <!-- 收支概览 -->
+            <div class="grid grid-cols-2 gap-4 mb-6">
+                <div class="bg-green-50 p-3 rounded-2xl border border-green-100">
+                    <p class="text-[10px] text-green-600 mb-1">收入合计</p>
+                    <p class="text-lg font-bold text-green-700">+{{ formatMoney(periodIncome) }}</p>
+                </div>
+                <div class="bg-red-50 p-3 rounded-2xl border border-red-100">
+                    <p class="text-[10px] text-red-600 mb-1">支出合计</p>
+                    <p class="text-lg font-bold text-red-700">-{{ formatMoney(periodExpense) }}</p>
+                </div>
             </div>
-            <p class="text-gray-400 text-sm">此时间段没有账单</p>
-        </div>
 
-        <div v-else class="space-y-4">
-            <div v-for="(group, dateKey) in groupedTransactions" :key="dateKey">
-                <!-- 日期标题：如果和 systemDate 相同则标注(今天) -->
-                <h3 class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 px-1 flex items-center">
-                    {{ dateKey }} 
-                    <span v-if="dateKey === systemDate" class="ml-2 bg-blue-100 text-blue-600 px-1.5 rounded text-[9px]">当前选择</span>
-                </h3>
-                <div class="space-y-2">
-                    <div v-for="item in group" :key="item.id" class="bg-white p-3 rounded-2xl shadow-sm flex justify-between items-center border border-gray-50 active:scale-[0.98] transition">
-                        <div class="flex items-center">
-                            <div :class="['w-10 h-10 rounded-xl flex items-center justify-center mr-3 text-white shadow-sm', item.type === 'expense' ? 'bg-red-400' : 'bg-green-400']">
-                                <i :class="getIcon(item.category)" class="text-sm"></i>
+            <!-- 账单列表 -->
+            <div v-if="filteredTransactions.length === 0" class="text-center py-10">
+                <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3"><i class="fas fa-receipt text-gray-300 text-2xl"></i></div>
+                <p class="text-gray-400 text-sm">此时间段没有账单</p>
+            </div>
+            <div v-else class="space-y-4">
+                <div v-for="(group, dateKey) in groupedTransactions" :key="dateKey">
+                    <h3 class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 px-1 flex items-center">{{ dateKey }} <span v-if="dateKey === systemDate" class="ml-2 bg-blue-100 text-blue-600 px-1.5 rounded text-[9px]">当前</span></h3>
+                    <div class="space-y-2">
+                        <div v-for="item in group" :key="item.id" class="bg-white p-3 rounded-2xl shadow-sm flex justify-between items-center border border-gray-50 active:scale-[0.98] transition">
+                            <div class="flex items-center">
+                                <div :class="['w-10 h-10 rounded-xl flex items-center justify-center mr-3 text-white shadow-sm', item.type === 'expense' ? 'bg-red-400' : 'bg-green-400']"><i :class="getIcon(item.category)" class="text-sm"></i></div>
+                                <div><p class="text-sm font-bold text-gray-800">{{ item.name }}</p><p class="text-[10px] text-gray-400">{{ item.category }}</p></div>
                             </div>
-                            <div>
-                                <p class="text-sm font-bold text-gray-800">{{ item.name }}</p>
-                                <p class="text-[10px] text-gray-400">{{ item.category }}</p>
+                            <div class="flex items-center space-x-3">
+                                <p :class="['font-bold text-sm', item.type === 'expense' ? 'text-red-500' : 'text-green-600']">{{ item.type === 'expense' ? '-' : '+' }}{{ formatMoney(item.amount) }}</p>
+                                <button @click="deleteTransaction(item.id)" class="w-8 h-8 rounded-lg bg-gray-50 text-gray-300 flex items-center justify-center hover:text-red-500"><i class="fas fa-trash text-[10px]"></i></button>
                             </div>
                         </div>
-                        <div class="flex items-center space-x-3">
-                            <p :class="['font-bold text-sm', item.type === 'expense' ? 'text-red-500' : 'text-green-600']">
-                                {{ item.type === 'expense' ? '-' : '+' }}{{ formatMoney(item.amount) }}
-                            </p>
-                            <button @click="deleteTransaction(item.id)" class="w-8 h-8 rounded-lg bg-gray-50 text-gray-300 flex items-center justify-center hover:text-red-500">
-                                <i class="fas fa-trash text-[10px]"></i>
-                            </button>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- ==== 模块 2：分析 (Analysis) ==== -->
+    <div v-show="currentTab === 'analysis'" class="flex-1 overflow-y-auto p-4 pb-24 hide-scrollbar">
+        <h2 class="text-2xl font-bold mb-4 text-gray-800">分类预算与分析</h2>
+        <p class="text-xs text-gray-400 mb-6">基于本月数据统计，设定各类别的独立预算。</p>
+
+        <div class="space-y-4">
+            <div v-for="item in categoryAnalysis" :key="item.category" class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
+                <div class="flex justify-between items-start mb-3">
+                    <div class="flex items-center">
+                        <div class="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center mr-3 text-blue-600">
+                            <i :class="getIcon(item.category)"></i>
+                        </div>
+                        <div>
+                            <p class="font-bold text-gray-800">{{ item.category }}</p>
+                            <p class="text-[10px] text-gray-400">本月 {{ item.count }} 笔 | 均价 ¥{{ formatMoney(item.avg) }}</p>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-lg font-bold text-gray-800">-{{ formatMoney(item.total) }}</p>
+                    </div>
+                </div>
+
+                <!-- 分类预算设置 -->
+                <div class="bg-gray-50 rounded-xl p-3">
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="text-[10px] text-gray-500">分类预算</span>
+                        <div class="flex items-center">
+                            <span class="text-xs mr-1 text-gray-400">¥</span>
+                            <input type="number" 
+                                v-model.number="categoryBudgets[item.category]" 
+                                @change="saveCategoryBudgets"
+                                placeholder="无限制" 
+                                class="w-16 bg-transparent text-right text-xs font-bold border-b border-gray-300 outline-none focus:border-blue-500">
+                        </div>
+                    </div>
+                    <!-- 进度条 (仅当设置了预算时显示) -->
+                    <div v-if="categoryBudgets[item.category] > 0">
+                        <div class="w-full bg-gray-200 h-1.5 rounded-full overflow-hidden">
+                            <div :class="['h-full rounded-full', item.total > categoryBudgets[item.category] ? 'bg-red-500' : 'bg-blue-500']" 
+                                 :style="{ width: Math.min((item.total / categoryBudgets[item.category]) * 100, 100) + '%' }"></div>
+                        </div>
+                        <div class="flex justify-between mt-1 text-[9px] text-gray-400">
+                            <span>{{ ((item.total / categoryBudgets[item.category]) * 100).toFixed(0) }}%</span>
+                            <span v-if="item.total > categoryBudgets[item.category]" class="text-red-500">已超支</span>
+                            <span v-else>剩余 ¥{{ formatMoney(categoryBudgets[item.category] - item.total) }}</span>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
-    </main>
+        <div class="h-12"></div>
+    </div>
 
-    <!-- 底部悬浮按钮 -->
-    <button @click="openAddModal" class="absolute bottom-8 right-6 w-14 h-14 bg-blue-600 text-white rounded-2xl shadow-xl flex items-center justify-center text-2xl hover:bg-blue-700 transition transform hover:scale-110 active:scale-90 z-50">
+    <!-- ==== 模块 3：模拟 (Simulate) ==== -->
+    <div v-show="currentTab === 'simulate'" class="flex-1 p-6 flex flex-col justify-center">
+        <div class="bg-white p-6 rounded-3xl shadow-xl">
+            <div class="text-center mb-6">
+                <div class="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4 text-purple-600 text-2xl">
+                    <i class="fas fa-magic"></i>
+                </div>
+                <h2 class="text-2xl font-bold text-gray-800">购物预演</h2>
+                <p class="text-xs text-gray-400 mt-2">输入你想买的东西，看看对未来生活的影响。</p>
+            </div>
+
+            <div class="bg-gray-50 rounded-2xl p-4 mb-6 border border-gray-100">
+                <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">预计花费金额</p>
+                <input type="number" v-model.number="simCost" placeholder="0.00" class="w-full bg-transparent text-4xl font-black outline-none text-purple-600 border-b-2 border-transparent focus:border-purple-200 transition">
+            </div>
+
+            <div v-if="budgetSettings.mode === 'fixed' && effectiveMonthlyBudget > 0" class="space-y-4">
+                <div class="flex justify-between items-center p-3 bg-blue-50 rounded-xl">
+                    <span class="text-xs text-gray-500">当前每日建议</span>
+                    <span class="text-sm font-bold text-blue-600">¥{{ formatMoney(todayCalculatedTarget) }}</span>
+                </div>
+                
+                <div class="text-center text-gray-400 text-lg"><i class="fas fa-arrow-down"></i></div>
+
+                <div :class="['flex justify-between items-center p-4 rounded-xl border-2 transition-all', simResult < 0 ? 'bg-red-50 border-red-100' : 'bg-green-50 border-green-100']">
+                    <div>
+                        <p class="text-xs text-gray-500 font-bold">购买后每日建议</p>
+                        <p class="text-[10px] text-gray-400">接下来的 {{ daysLeftInMonth }} 天</p>
+                    </div>
+                    <div class="text-right">
+                        <span :class="['text-2xl font-black', simResult < 0 ? 'text-red-500' : 'text-green-600']">¥{{ formatMoney(simResult) }}</span>
+                    </div>
+                </div>
+
+                <div v-if="simImpact > 0" class="text-center bg-purple-50 p-2 rounded-lg text-xs text-purple-700">
+                    这意味着你每天要少花 <b class="text-sm">¥{{ formatMoney(simImpact) }}</b> 💸
+                </div>
+            </div>
+            
+            <div v-else class="text-center text-gray-400 text-xs py-4">
+                请先在首页顶部设置固定预算，才能使用预测功能。
+            </div>
+        </div>
+    </div>
+
+    <!-- 底部悬浮按钮 (记账) -->
+    <button v-show="currentTab === 'home'" @click="openAddModal" class="absolute bottom-24 right-6 w-14 h-14 bg-blue-600 text-white rounded-2xl shadow-xl flex items-center justify-center text-2xl hover:bg-blue-700 transition transform hover:scale-110 active:scale-90 z-50">
         <i class="fas fa-plus"></i>
     </button>
+
+    <!-- ==== 底部导航栏 ==== -->
+    <nav class="fixed bottom-0 left-0 w-full bg-white border-t border-gray-100 pb-safe pt-2 px-6 shadow-[0_-5px_15px_rgba(0,0,0,0.02)] z-40 max-w-md mx-auto left-0 right-0">
+        <div class="flex justify-between items-center h-16">
+            <button @click="currentTab = 'home'" :class="['flex flex-col items-center justify-center w-16 transition', currentTab === 'home' ? 'text-blue-600 transform scale-105' : 'text-gray-300']">
+                <i class="fas fa-home text-xl mb-1"></i>
+                <span class="text-[10px] font-bold">首页</span>
+            </button>
+            <button @click="currentTab = 'analysis'" :class="['flex flex-col items-center justify-center w-16 transition', currentTab === 'analysis' ? 'text-blue-600 transform scale-105' : 'text-gray-300']">
+                <i class="fas fa-chart-pie text-xl mb-1"></i>
+                <span class="text-[10px] font-bold">分析</span>
+            </button>
+            <button @click="currentTab = 'simulate'" :class="['flex flex-col items-center justify-center w-16 transition', currentTab === 'simulate' ? 'text-blue-600 transform scale-105' : 'text-gray-300']">
+                <i class="fas fa-magic text-xl mb-1"></i>
+                <span class="text-[10px] font-bold">模拟</span>
+            </button>
+        </div>
+    </nav>
 
     <!-- ==== 弹窗：校准总资产 ==== -->
     <div v-if="showAssetModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-6">
         <div class="bg-white w-full rounded-3xl p-6 shadow-2xl">
             <h3 class="text-xl font-bold mb-2">校准总资产</h3>
-            <p class="text-xs text-gray-400 mb-6">输入你目前真实的资金总数（含现金、银行卡、余额等）。</p>
+            <p class="text-xs text-gray-400 mb-6">输入你目前真实的资金总数。</p>
             <div class="bg-gray-50 rounded-2xl p-4 mb-6 border border-gray-100">
                 <span class="text-xs text-blue-600 font-bold block mb-1">当前应有总金额</span>
                 <input type="number" v-model.number="assetInput" class="w-full bg-transparent text-3xl font-black outline-none" autofocus>
@@ -238,7 +304,6 @@
                 <button @click="newTx.type = 'expense'" :class="['flex-1 py-3 rounded-xl text-sm font-bold transition', newTx.type === 'expense' ? 'bg-white text-red-500 shadow-sm' : 'text-gray-400']">支出记录</button>
                 <button @click="newTx.type = 'income'" :class="['flex-1 py-3 rounded-xl text-sm font-bold transition', newTx.type === 'income' ? 'bg-white text-green-500 shadow-sm' : 'text-gray-400']">收入记录</button>
             </div>
-
             <div class="space-y-6">
                 <div>
                     <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1 pl-1">金额 (CNY)</p>
@@ -251,11 +316,7 @@
                 <div>
                     <p class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2 pl-1">选择分类</p>
                     <div class="flex flex-wrap gap-2 max-h-40 overflow-y-auto hide-scrollbar">
-                        <span v-for="cat in categories" :key="cat" 
-                              @click="newTx.category = cat"
-                              :class="['px-4 py-2 text-xs rounded-xl cursor-pointer border transition', newTx.category === cat ? 'bg-blue-600 border-blue-600 text-white shadow-md' : 'bg-gray-50 border-gray-100 text-gray-500']">
-                            {{ cat }}
-                        </span>
+                        <span v-for="cat in categories" :key="cat" @click="newTx.category = cat" :class="['px-4 py-2 text-xs rounded-xl cursor-pointer border transition', newTx.category === cat ? 'bg-blue-600 border-blue-600 text-white shadow-md' : 'bg-gray-50 border-gray-100 text-gray-500']">{{ cat }}</span>
                     </div>
                 </div>
                 <div class="flex space-x-3">
@@ -293,10 +354,7 @@
                     <div :class="['w-4 h-4 rounded-full border-2 mr-3 flex items-center justify-center', budgetSettings.mode === 'auto' ? 'border-blue-600' : 'border-gray-300']">
                         <div v-if="budgetSettings.mode === 'auto'" class="w-2 h-2 bg-blue-600 rounded-full"></div>
                     </div>
-                    <div>
-                        <p class="text-sm font-bold">动态预算</p>
-                        <p class="text-[10px] text-gray-400">本月预算 = 本月总收入</p>
-                    </div>
+                    <div><p class="text-sm font-bold">动态预算</p><p class="text-[10px] text-gray-400">本月预算 = 本月总收入</p></div>
                 </label>
                 <label @click="budgetSettings.mode = 'fixed'" :class="['flex items-center p-4 border-2 rounded-2xl cursor-pointer transition', budgetSettings.mode === 'fixed' ? 'border-blue-600 bg-blue-50' : 'border-gray-100']">
                     <div :class="['w-4 h-4 rounded-full border-2 mr-3 flex items-center justify-center', budgetSettings.mode === 'fixed' ? 'border-blue-600' : 'border-gray-300']">
@@ -338,13 +396,17 @@
     createApp({
         setup() {
             // === 数据状态 ===
+            const currentTab = ref('home'); // 控制底部导航栏切换
             const initialBalance = ref(0); 
             const transactions = ref([]); 
             const savings = ref(0);
             const budgetSettings = ref({ mode: 'auto', amount: 3000 });
             const categories = ref(['餐饮', '交通', '购物', '娱乐', '居家', '工资', '奖金', '转账']);
+            // 新增：分类预算设置
+            const categoryBudgets = ref({}); 
+            // 新增：模拟消费输入
+            const simCost = ref('');
             
-            // 核心：系统日期控制
             const systemDate = ref(new Date().toISOString().split('T')[0]);
 
             const showAddModal = ref(false), showSavingsModal = ref(false), showBudgetModal = ref(false), showCatManageModal = ref(false), showCategoryFilter = ref(false), showAssetModal = ref(false);
@@ -359,16 +421,15 @@
             const totalAssets = computed(() => initialBalance.value + netCashFlow.value);
             const disposableMoney = computed(() => totalAssets.value - savings.value);
 
-            // 过滤逻辑 (使用 systemDate 作为 'now')
+            // === 过滤与列表 ===
             const filteredByTime = computed(() => {
-                const now = new Date(systemDate.value); // 使用选择的日期作为基准
+                const now = new Date(systemDate.value);
                 return transactions.value.filter(t => {
                     const tDate = new Date(t.date);
                     if (currentTimeFilter.value === 'year') return tDate.getFullYear() === now.getFullYear();
                     if (currentTimeFilter.value === 'month') return tDate.getMonth() === now.getMonth() && tDate.getFullYear() === now.getFullYear();
                     if (currentTimeFilter.value === 'day') return t.date === systemDate.value;
                     if (currentTimeFilter.value === 'week') {
-                        // 简单周计算：以systemDate所在周为准
                         const current = new Date(systemDate.value);
                         const firstDay = new Date(current.setDate(current.getDate() - current.getDay()));
                         const lastDay = new Date(current.setDate(current.getDate() + 6));
@@ -386,7 +447,7 @@
             const periodIncome = computed(() => filteredTransactions.value.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0));
             const periodExpense = computed(() => filteredTransactions.value.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0));
 
-            // 月度预算逻辑 (基于 systemDate 所在月份)
+            // === 月度预算系统 ===
             const currentMonthTransactions = computed(() => {
                 const now = new Date(systemDate.value);
                 return transactions.value.filter(t => {
@@ -397,70 +458,67 @@
             const currentMonthIncome = computed(() => currentMonthTransactions.value.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0));
             const currentMonthExpense = computed(() => currentMonthTransactions.value.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0));
             
-            // 核心修改：在固定模式下，月总可用预算 = 设定金额 + 本月收入
-            const effectiveMonthlyBudget = computed(() => {
-                if (budgetSettings.value.mode === 'auto') {
-                    return currentMonthIncome.value || 0;
-                } else {
-                    return budgetSettings.value.amount + currentMonthIncome.value; 
-                }
-            });
-
+            const effectiveMonthlyBudget = computed(() => budgetSettings.value.mode === 'auto' ? (currentMonthIncome.value || 0) : (budgetSettings.value.amount + currentMonthIncome.value));
             const remainingBudget = computed(() => effectiveMonthlyBudget.value - currentMonthExpense.value);
             const budgetPercentage = computed(() => effectiveMonthlyBudget.value <= 0 ? (currentMonthExpense.value > 0 ? 100 : 0) : Math.min((currentMonthExpense.value / effectiveMonthlyBudget.value) * 100, 100));
 
-            // === 核心逻辑：今日预算 ===
-            
-            // 1. 本月剩余天数 (基于 systemDate)
+            // === 今日预算计算 ===
             const daysLeftInMonth = computed(() => {
                 const now = new Date(systemDate.value);
                 const lastDayOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
-                // 剩余天数 = 月末 - 当前日期 + 1 (包含今天)
                 return lastDayOfMonth - now.getDate() + 1;
             });
-
-            // 2. 今日已支出
-            const todayExpense = computed(() => {
-                return currentMonthTransactions.value
-                    .filter(t => t.type === 'expense' && t.date === systemDate.value)
-                    .reduce((sum, t) => sum + t.amount, 0);
-            });
-
-            // 3. 昨天为止的支出 (本月总支出 - 今日支出)
-            const expenseBeforeToday = computed(() => {
-                return currentMonthExpense.value - todayExpense.value;
-            });
-
-            // 4. 今日建议目标
+            const todayExpense = computed(() => currentMonthTransactions.value.filter(t => t.type === 'expense' && t.date === systemDate.value).reduce((sum, t) => sum + t.amount, 0));
+            const expenseBeforeToday = computed(() => currentMonthExpense.value - todayExpense.value);
+            
             const todayCalculatedTarget = computed(() => {
                 const daysLeft = daysLeftInMonth.value;
                 if (daysLeft <= 0) return 0;
-                
-                // 逻辑：(月度总可用 - 昨天截止已用掉的) / 剩余天数
-                // 因为 effectiveMonthlyBudget 包含了收入，所以如果有新收入，这个分子变大，target 就会变大
                 const stableTarget = (effectiveMonthlyBudget.value - expenseBeforeToday.value) / daysLeft;
-
                 if (remainingBudget.value < 0) return 0; 
-                
-                // 如果今天超支，显示实时剩余均摊，否则显示稳定目标
-                if (todayExpense.value > stableTarget) {
-                    return remainingBudget.value / daysLeft; 
-                } else {
-                    return stableTarget;
-                }
+                return todayExpense.value > stableTarget ? (remainingBudget.value / daysLeft) : stableTarget;
             });
-
             const todayProgressPct = computed(() => {
                 const target = todayCalculatedTarget.value;
-                if (target <= 0) return 100;
-                return Math.min((todayExpense.value / target) * 100, 100);
+                return target <= 0 ? 100 : Math.min((todayExpense.value / target) * 100, 100);
             });
 
+            // === 功能模块 2：分析 (分类统计) ===
+            const categoryAnalysis = computed(() => {
+                const analysis = [];
+                categories.value.forEach(cat => {
+                    const txs = currentMonthTransactions.value.filter(t => t.category === cat && t.type === 'expense');
+                    const total = txs.reduce((sum, t) => sum + t.amount, 0);
+                    const count = txs.length;
+                    const avg = count > 0 ? total / count : 0;
+                    analysis.push({ category: cat, total, count, avg });
+                });
+                return analysis.sort((a, b) => b.total - a.total);
+            });
+            const saveCategoryBudgets = () => { localStorage.setItem('myAccount_catBudgets', JSON.stringify(categoryBudgets.value)); };
+
+            // === 功能模块 3：模拟消费 ===
+            const simResult = computed(() => {
+                const daysLeft = daysLeftInMonth.value;
+                if (daysLeft <= 0) return 0;
+                const currentDaily = todayCalculatedTarget.value;
+                const cost = Number(simCost.value) || 0;
+                // 模拟剩余总金额 = 当前剩余 - 模拟花费
+                const newRemaining = remainingBudget.value - cost;
+                // 新的每日可用 = 新剩余 / 剩余天数 (假设今天买)
+                return newRemaining / daysLeft;
+            });
+            const simImpact = computed(() => {
+                const daysLeft = daysLeftInMonth.value;
+                if (daysLeft <= 0) return 0;
+                return Number(simCost.value) / daysLeft;
+            });
+
+            // === 样式与辅助 ===
             const todayStatusColor = computed(() => todayExpense.value > todayCalculatedTarget.value ? 'text-red-500' : 'text-blue-600');
             const budgetBarColor = computed(() => budgetPercentage.value >= 100 ? 'bg-red-500' : (budgetPercentage.value >= 80 ? 'bg-yellow-400' : 'bg-blue-600'));
             const budgetStatusColor = computed(() => budgetPercentage.value >= 100 ? 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]' : (budgetPercentage.value >= 80 ? 'bg-yellow-400' : 'bg-green-500'));
 
-            // === 方法 ===
             const formatMoney = (val) => Number(val).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
             const getIcon = (cat) => { const map = { '餐饮': 'fa-utensils', '交通': 'fa-car', '购物': 'fa-shopping-cart', '娱乐': 'fa-gamepad', '居家': 'fa-home', '工资': 'fa-wallet', '奖金': 'fa-gift', '转账': 'fa-exchange-alt' }; return `fas ${map[cat] || 'fa-tag'}`; };
 
@@ -471,8 +529,6 @@
             const openSavingsModal = () => { savingsInput.value = ''; showSavingsModal.value = true; };
             const openBudgetModal = () => showBudgetModal.value = true;
             const openCategoryManage = () => { showCategoryFilter.value = false; showCatManageModal.value = true; };
-            
-            // 日期控制
             const resetDateToToday = () => { systemDate.value = new Date().toISOString().split('T')[0]; };
 
             const confirmTransaction = () => {
@@ -492,33 +548,23 @@
             const removeCategory = (index) => categories.value.splice(index, 1);
 
             onMounted(() => {
-                const data = { 'myAccount_tx': transactions, 'myAccount_savings': savings, 'myAccount_cats': categories, 'myAccount_budget': budgetSettings, 'myAccount_initial': initialBalance };
+                const data = { 'myAccount_tx': transactions, 'myAccount_savings': savings, 'myAccount_cats': categories, 'myAccount_budget': budgetSettings, 'myAccount_initial': initialBalance, 'myAccount_catBudgets': categoryBudgets };
                 Object.keys(data).forEach(key => { const saved = localStorage.getItem(key); if (saved) data[key].value = key.includes('tx') || key.includes('cats') || key.includes('budget') ? JSON.parse(saved) : Number(saved); });
-                
-                // 自动唤醒：监听页面可见性，从后台回来时更新日期
-                document.addEventListener('visibilitychange', () => {
-                    if (document.visibilityState === 'visible') {
-                        // 逻辑：如果用户没有手动设置过很离谱的日期（比如查看历史），这里可以考虑自动跳回今天
-                        // 或者仅做一次 refresh。为了不打扰用户查看历史，这里暂不强制重置，
-                        // 但用户可以通过点击顶部的"回到今天"一键校准。
-                    }
-                });
             });
-            watch([transactions, savings, categories, budgetSettings, initialBalance], () => {
-                const data = { 'myAccount_tx': transactions.value, 'myAccount_savings': savings.value, 'myAccount_cats': categories.value, 'myAccount_budget': budgetSettings.value, 'myAccount_initial': initialBalance.value };
+            watch([transactions, savings, categories, budgetSettings, initialBalance, categoryBudgets], () => {
+                const data = { 'myAccount_tx': transactions.value, 'myAccount_savings': savings.value, 'myAccount_cats': categories.value, 'myAccount_budget': budgetSettings.value, 'myAccount_initial': initialBalance.value, 'myAccount_catBudgets': categoryBudgets.value };
                 Object.keys(data).forEach(key => localStorage.setItem(key, typeof data[key] === 'object' ? JSON.stringify(data[key]) : data[key]));
             }, { deep: true });
 
             return {
-                transactions, savings, budgetSettings, categories, initialBalance, systemDate,
+                currentTab, transactions, savings, budgetSettings, categories, initialBalance, systemDate,
                 showAddModal, showSavingsModal, showBudgetModal, showCatManageModal, showCategoryFilter, showAssetModal,
                 currentTimeFilter, timeFilters, filterCategory,
-                newTx, savingsInput, newCategoryName, assetInput,
+                newTx, savingsInput, newCategoryName, assetInput, categoryBudgets, simCost,
                 totalAssets, disposableMoney, periodIncome, periodExpense, filteredTransactions, groupedTransactions,
                 currentMonthExpense, effectiveMonthlyBudget, remainingBudget, budgetPercentage, budgetBarColor, budgetStatusColor, currentBudgetMode: computed(()=>budgetSettings.value.mode),
-                
                 todayCalculatedTarget, todayExpense, todayProgressPct, todayStatusColor, daysLeftInMonth,
-
+                categoryAnalysis, saveCategoryBudgets, simResult, simImpact,
                 formatMoney, getIcon, openAddModal, closeAddModal, openSavingsModal, openBudgetModal, openCategoryManage, openAssetModal, resetDateToToday,
                 confirmTransaction, deleteTransaction, setFilter, confirmAssetUpdate, updateSavings, addCategory, removeCategory
             };
